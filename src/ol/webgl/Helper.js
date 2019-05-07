@@ -431,7 +431,7 @@ class WebGLHelper extends Disposable {
    * @param {import("../PluggableMap.js").FrameState} frameState current frame state
    * @api
    */
-  prepareDraw(frameState) {
+  prepareDraw(frameState, dataCenter) {
     const gl = this.getGL();
     const canvas = this.getCanvas();
     const size = frameState.size;
@@ -456,7 +456,7 @@ class WebGLHelper extends Disposable {
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-    this.applyFrameState(frameState);
+    this.applyFrameState(frameState,dataCenter);
     this.applyUniforms(frameState);
   }
 
@@ -511,7 +511,7 @@ class WebGLHelper extends Disposable {
    * @param {import("../PluggableMap.js").FrameState} frameState Frame state.
    * @private
    */
-  applyFrameState(frameState) {
+  applyFrameState(frameState, dataCenter) {
     const size = frameState.size;
     const rotation = frameState.viewState.rotation;
     const resolution = frameState.viewState.resolution;
@@ -522,6 +522,9 @@ class WebGLHelper extends Disposable {
     scaleTransform(projectionMatrix, 2 / (resolution * size[0]), 2 / (resolution * size[1]));
     rotateTransform(projectionMatrix, -rotation);
     translateTransform(projectionMatrix, -center[0], -center[1]);
+    if(dataCenter){
+      translateTransform(projectionMatrix, +dataCenter[0], +dataCenter[1]);
+    }
 
     const offsetScaleMatrix = resetTransform(this.offsetScaleMatrix_);
     scaleTransform(offsetScaleMatrix, 2 / size[0], 2 / size[1]);
@@ -644,6 +647,9 @@ class WebGLHelper extends Disposable {
     if (gl.getShaderInfoLog(vertexShader)) {
       this.shaderCompileErrors_ = (this.shaderCompileErrors_ || '') +
         `Vertex shader compilation failed:\n${gl.getShaderInfoLog(vertexShader)}`;
+    }
+    if(this.shaderCompileErrors_){
+      console.log(this.shaderCompileErrors_);
     }
 
     const program = gl.createProgram();

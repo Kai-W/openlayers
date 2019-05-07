@@ -206,6 +206,8 @@ class WebGLPointsLayerRenderer extends LayerRenderer {
 
     this.sourceRevision_ = -1;
 
+    this.dataCenter = undefined;
+
     this.verticesBuffer_ = new WebGLArrayBuffer([], DYNAMIC_DRAW);
     this.indicesBuffer_ = new WebGLArrayBuffer([], DYNAMIC_DRAW);
 
@@ -272,9 +274,16 @@ class WebGLPointsLayerRenderer extends LayerRenderer {
 
     const stride = 12;
 
-    this.helper_.prepareDraw(frameState);
+    const viewCenter = frameState.viewState.center;
 
-    if (this.sourceRevision_ < vectorSource.getRevision()) {
+    var recomputeDataCenter = this.dataCenter == undefined;
+    if(!recomputeDataCenter){
+        var distance = Math.sqrt(Math.pow(viewCenter[0] - this.dataCenter[0], 2) + Math.pow(viewCenter[1] - this.dataCenter[1], 2));
+        var tresholdDistance = frameState.viewState.resolution * 1000;//alowed radius in px randomly selected value of 1000
+        recomputeDataCenter = distance > tresholdDistance;
+    }
+
+    if (this.sourceRevision_ < vectorSource.getRevision() || recomputeDataCenter) {
       this.sourceRevision_ = vectorSource.getRevision();
       this.verticesBuffer_.getArray().length = 0;
       this.indicesBuffer_.getArray().length = 0;
@@ -283,14 +292,17 @@ class WebGLPointsLayerRenderer extends LayerRenderer {
       const projection = viewState.projection;
       const resolution = viewState.resolution;
 
+      this.dataCenter = viewCenter;
+
       // loop on features to fill the buffer
       vectorSource.loadFeatures([-Infinity, -Infinity, Infinity, Infinity], resolution, projection);
       vectorSource.forEachFeature((feature) => {
         if (!feature.getGeometry() || feature.getGeometry().getType() !== GeometryType.POINT) {
           return;
         }
-        const x = this.coordCallback_(feature, 0);
-        const y = this.coordCallback_(feature, 1);
+        var center = this.dataCenter ? this.dataCenter: [0,0];
+        const x = this.coordCallback_(feature, 0)-center[0];
+        const y = this.coordCallback_(feature, 1)-center[1];
         const u0 = this.texCoordCallback_(feature, 0);
         const v0 = this.texCoordCallback_(feature, 1);
         const u1 = this.texCoordCallback_(feature, 2);
@@ -317,9 +329,12 @@ class WebGLPointsLayerRenderer extends LayerRenderer {
         );
       });
 
+
       this.helper_.flushBufferData(ARRAY_BUFFER, this.verticesBuffer_);
       this.helper_.flushBufferData(ELEMENT_ARRAY_BUFFER, this.indicesBuffer_);
     }
+      
+    this.helper_.prepareDraw(frameState, this.dataCenter);
 
     // write new data
     this.helper_.bindBuffer(ARRAY_BUFFER, this.verticesBuffer_);
